@@ -30,7 +30,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#fdfbf7] font-sans overflow-x-hidden">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 max-w-6xl mx-auto">
+      <nav aria-label="Main navigation" className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 max-w-6xl mx-auto">
         <span className="text-2xl font-bold text-slate-900 font-fredoka tracking-tight">
           Crdly<span className="text-pink-400">.</span>
         </span>
@@ -43,6 +43,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
+      <main>
       <section className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 md:pt-24 pb-24 sm:pb-32 md:pb-44">
         {/* Floating Mini Cards — decorative */}
         {FLOATING_CARDS.map((card) => (
@@ -253,6 +254,8 @@ export default function LandingPage() {
           </Link>
         </motion.div>
       </section>
+
+      </main>
 
       {/* Footer */}
       <footer className="border-t border-slate-100 py-8 px-6 flex flex-col sm:flex-row items-center justify-between max-w-6xl mx-auto gap-3 text-sm text-slate-400">

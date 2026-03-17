@@ -5,12 +5,23 @@
 
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
+import { useEffect } from 'react';
 import LandingPage from './pages/LandingPage';
 import CreateGreeting from './pages/CreateGreeting';
 import ViewGreeting from './pages/ViewGreeting';
 
+const ROUTE_TITLES: Record<string, string> = {
+  '/': 'Crdly — Create & Share Beautiful Greeting Cards',
+  '/create': 'Create a Card — Crdly',
+  '/view': 'Your Greeting Card — Crdly',
+};
+
 function AnimatedRoutes() {
   const location = useLocation();
+
+  useEffect(() => {
+    document.title = ROUTE_TITLES[location.pathname] || ROUTE_TITLES['/'];
+  }, [location.pathname]);
   return (
     <AnimatePresence mode="wait">
       <motion.div
