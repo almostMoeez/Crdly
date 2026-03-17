@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { Sparkles, Type, Smile, Image as ImageIcon, Save, Copy, Check, Trash2, Settings, Search, Link as LinkIcon, Plus, Shapes } from 'lucide-react';
+import { Sparkles, Type, Smile, Image as ImageIcon, Save, Copy, Check, Trash2, Settings, Search, Link as LinkIcon, Plus, Shapes, Eye, X, Undo2, Redo2, RotateCw, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 import { db } from '../firebase';
 import { doc, setDoc, getDoc, increment, runTransaction } from 'firebase/firestore';
@@ -43,6 +44,64 @@ const FONTS = [
 ];
 const COLORS = ['#1c1917', '#ef4444', '#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#14b8a6'];
 
+const BACKGROUNDS = [
+  { id: 'default', name: 'Dreamy', colors: ['#e0e7ff', '#ede9fe', '#fce7f3'] },
+  { id: 'sunset', name: 'Sunset', colors: ['#fed7aa', '#fecdd3', '#d8b4fe'] },
+  { id: 'ocean', name: 'Ocean', colors: ['#a5f3fc', '#93c5fd', '#818cf8'] },
+  { id: 'forest', name: 'Forest', colors: ['#a7f3d0', '#bbf7d0', '#99f6e4'] },
+  { id: 'midnight', name: 'Midnight', colors: ['#1e293b', '#312e81', '#0f172a'] },
+  { id: 'candy', name: 'Candy', colors: ['#fbcfe8', '#e9d5ff', '#c4b5fd'] },
+  { id: 'aurora', name: 'Aurora', colors: ['#86efac', '#67e8f9', '#93c5fd'] },
+  { id: 'warm', name: 'Warm', colors: ['#fde68a', '#fed7aa', '#fecaca'] },
+];
+
+const BG_DECORATIONS = [
+  { id: 'none', name: 'None', icon: 'Ban' },
+  { id: 'stars', name: 'Stars', icon: 'Star' },
+  { id: 'hearts', name: 'Hearts', icon: 'Heart' },
+  { id: 'sparkles', name: 'Sparkles', icon: 'Sparkles' },
+  { id: 'clouds', name: 'Clouds', icon: 'Cloud' },
+  { id: 'flowers', name: 'Flowers', icon: 'Flower2' },
+  { id: 'music', name: 'Music', icon: 'Music' },
+];
+
+const OPEN_ANIMATIONS = [
+  { id: 'confetti', name: 'Confetti', icon: 'PartyPopper' },
+  { id: 'fireworks', name: 'Fireworks', icon: 'Flame' },
+  { id: 'hearts', name: 'Hearts', icon: 'Heart' },
+  { id: 'stars', name: 'Stars', icon: 'Star' },
+  { id: 'none', name: 'None', icon: 'Ban' },
+];
+
+const PREVIEW_BG_MAP: Record<string, string> = {
+  default: 'from-indigo-100 via-purple-100 to-pink-100',
+  sunset: 'from-orange-200 via-rose-200 to-purple-300',
+  ocean: 'from-cyan-200 via-blue-300 to-indigo-400',
+  forest: 'from-emerald-200 via-green-200 to-teal-200',
+  midnight: 'from-slate-800 via-indigo-900 to-slate-900',
+  candy: 'from-pink-200 via-fuchsia-200 to-violet-300',
+  aurora: 'from-green-300 via-cyan-300 to-blue-300',
+  warm: 'from-amber-200 via-orange-200 to-red-200',
+};
+
+const DECORATION_ICON_MAP: Record<string, string> = {
+  stars: 'Star', hearts: 'Heart', sparkles: 'Sparkles',
+  clouds: 'Cloud', flowers: 'Flower2', music: 'Music',
+};
+
+const FLOAT_ITEMS = [
+  { id: 0, x: 5, y: 8, size: 22, delay: 0, duration: 7 },
+  { id: 1, x: 88, y: 5, size: 18, delay: 1.2, duration: 9 },
+  { id: 2, x: 12, y: 75, size: 26, delay: 0.5, duration: 6 },
+  { id: 3, x: 92, y: 70, size: 20, delay: 2, duration: 8 },
+  { id: 4, x: 50, y: 3, size: 16, delay: 0.8, duration: 10 },
+  { id: 5, x: 3, y: 45, size: 24, delay: 1.5, duration: 7 },
+  { id: 6, x: 95, y: 40, size: 18, delay: 0.3, duration: 9 },
+  { id: 7, x: 30, y: 90, size: 20, delay: 2.5, duration: 6 },
+  { id: 8, x: 70, y: 88, size: 22, delay: 1, duration: 8 },
+  { id: 9, x: 55, y: 50, size: 14, delay: 3, duration: 11 },
+];
+
 const DEFAULT_ELEMENTS: CardElement[] = [
   { id: '1', type: 'sticker', content: 'https://media.tenor.com/Z1Gg1aG1e_8AAAAi/happy-birthday.gif', x: 100, y: 60, scale: 1.5, rotation: 0, color: '#f59e0b', font: 'font-sans', page: 'cover' },
   { id: '2', type: 'text', content: 'Happy Birthday!', x: 60, y: 200, scale: 1.5, rotation: -5, color: '#ec4899', font: 'font-pacifico', page: 'cover' },
@@ -62,10 +121,65 @@ export default function CreateGreeting() {
   const [customSlug, setCustomSlug] = useState(() => Math.random().toString(36).substr(2, 9));
   const [slugError, setSlugError] = useState('');
 
+  // Display customization
+  const [bgStyle, setBgStyle] = useState('default');
+  const [bgDecoration, setBgDecoration] = useState('sparkles');
+  const [openAnimation, setOpenAnimation] = useState('confetti');
+
+  // Preview mode
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Undo/Redo history
+  const historyRef = useRef<CardElement[][]>([]);
+  const historyIndexRef = useRef(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const updateHistoryState = useCallback(() => {
+    setCanUndo(historyIndexRef.current > 0);
+    setCanRedo(historyIndexRef.current < historyRef.current.length - 1);
+  }, []);
+
+  const pushHistory = useCallback((newElements: CardElement[]) => {
+    const newIndex = historyIndexRef.current + 1;
+    historyRef.current = historyRef.current.slice(0, newIndex);
+    historyRef.current.push(JSON.parse(JSON.stringify(newElements)));
+    historyIndexRef.current = newIndex;
+    setElements(newElements);
+    updateHistoryState();
+  }, [updateHistoryState]);
+
+  const undo = useCallback(() => {
+    if (historyIndexRef.current <= 0) return;
+    historyIndexRef.current -= 1;
+    setElements(JSON.parse(JSON.stringify(historyRef.current[historyIndexRef.current])));
+    updateHistoryState();
+  }, [updateHistoryState]);
+
+  const redo = useCallback(() => {
+    if (historyIndexRef.current >= historyRef.current.length - 1) return;
+    historyIndexRef.current += 1;
+    setElements(JSON.parse(JSON.stringify(historyRef.current[historyIndexRef.current])));
+    updateHistoryState();
+  }, [updateHistoryState]);
+
   const canvasRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const dragInfo = useRef<{ id: string; startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+
+  // Inline text editing
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editRef = useRef<HTMLDivElement>(null);
+
+  // Resize state
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeInfo = useRef<{ id: string; startX: number; startY: number; initialScale: number; corner: string } | null>(null);
+
+  // Rotate state
+  const [isRotating, setIsRotating] = useState(false);
+  const rotateInfo = useRef<{ id: string; centerX: number; centerY: number; startAngle: number; initialRotation: number } | null>(null);
 
   // Sticker Search State
   const [stickerQuery, setStickerQuery] = useState('cute');
@@ -108,16 +222,21 @@ export default function CreateGreeting() {
       setIsSearchingStickers(true);
       try {
         const q = stickerQuery.trim() || 'cute';
-        const res = await fetch(`https://g.tenor.com/v1/search?q=${encodeURIComponent(q)}&key=LIVDSRZULELA&limit=24&searchfilter=sticker`);
+        const res = await fetch(`https://api.giphy.com/v1/stickers/search?api_key=${import.meta.env.VITE_GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=24&rating=g`);
         const data = await res.json();
-        const urls = data.results.map((r: any) => ({
+        if (!data.data) {
+          setStickerResults([]);
+          return;
+        }
+        const urls = data.data.map((r: any) => ({
           id: r.id,
-          preview: r.media[0].tinygif.url,
-          url: r.media[0].gif.url
-        }));
+          preview: r.images?.fixed_height_small?.url || r.images?.fixed_width?.url || '',
+          url: r.images?.original?.url || r.images?.fixed_width?.url || ''
+        })).filter((s: any) => s.url);
         setStickerResults(urls);
       } catch (error) {
         console.error("Failed to fetch stickers", error);
+        setStickerResults([]);
       } finally {
         setIsSearchingStickers(false);
       }
@@ -143,6 +262,9 @@ export default function CreateGreeting() {
   useEffect(() => {
     if (elements.length === 0) {
       setElements(DEFAULT_ELEMENTS);
+      historyRef.current = [JSON.parse(JSON.stringify(DEFAULT_ELEMENTS))];
+      historyIndexRef.current = 0;
+      updateHistoryState();
     }
   }, []);
 
@@ -159,21 +281,111 @@ export default function CreateGreeting() {
       font: FONTS[0].class,
       page: activePage,
     };
-    setElements([...elements, newEl]);
+    pushHistory([...elements, newEl]);
     setSelectedId(newEl.id);
   };
 
   const updateElement = (id: string, updates: Partial<CardElement>) => {
-    setElements(elements.map(el => el.id === id ? { ...el, ...updates } : el));
+    const updated = elements.map(el => el.id === id ? { ...el, ...updates } : el);
+    if (isDragging || isResizing) {
+      setElements(updated);
+    } else {
+      pushHistory(updated);
+    }
   };
 
   const deleteElement = (id: string) => {
-    setElements(elements.filter(el => el.id !== id));
+    pushHistory(elements.filter(el => el.id !== id));
     if (selectedId === id) setSelectedId(null);
   };
 
+  const moveLayerUp = (id: string) => {
+    const idx = elements.findIndex(el => el.id === id);
+    if (idx < 0 || idx >= elements.length - 1) return;
+    const next = [...elements];
+    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+    pushHistory(next);
+  };
+
+  const moveLayerDown = (id: string) => {
+    const idx = elements.findIndex(el => el.id === id);
+    if (idx <= 0) return;
+    const next = [...elements];
+    [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+    pushHistory(next);
+  };
+
+  const bringToFront = (id: string) => {
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    pushHistory([...elements.filter(e => e.id !== id), el]);
+  };
+
+  const sendToBack = (id: string) => {
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    pushHistory([el, ...elements.filter(e => e.id !== id)]);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!selectedId || shareUrl || editingId) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const STEP = e.shiftKey ? 10 : 2;
+
+      switch (e.key) {
+        case 'Delete':
+        case 'Backspace':
+          e.preventDefault();
+          deleteElement(selectedId);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          updateElement(selectedId, { y: (elements.find(el => el.id === selectedId)?.y ?? 0) - STEP });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          updateElement(selectedId, { y: (elements.find(el => el.id === selectedId)?.y ?? 0) + STEP });
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          updateElement(selectedId, { x: (elements.find(el => el.id === selectedId)?.x ?? 0) - STEP });
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          updateElement(selectedId, { x: (elements.find(el => el.id === selectedId)?.x ?? 0) + STEP });
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedId, shareUrl, elements, editingId]);
+
+  useEffect(() => {
+    const handleUndoRedo = (e: KeyboardEvent) => {
+      if (shareUrl) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleUndoRedo);
+    return () => window.removeEventListener('keydown', handleUndoRedo);
+  }, [shareUrl, undo, redo]);
+
   const handlePointerDown = (e: React.PointerEvent, id: string) => {
+    if (isResizing) return;
     e.stopPropagation();
+    if (editingId && editingId !== id) {
+      finishEditing();
+    }
     setSelectedId(id);
     setIsDragging(true);
     const el = elements.find(e => e.id === id);
@@ -183,6 +395,29 @@ export default function CreateGreeting() {
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
+    if (isRotating && rotateInfo.current) {
+      const { id, centerX, centerY, startAngle, initialRotation } = rotateInfo.current;
+      const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+      const delta = angle - startAngle;
+      updateElement(id, { rotation: Math.round(initialRotation + delta) });
+      return;
+    }
+    if (isResizing && resizeInfo.current) {
+      const { id, startX, startY, initialScale, corner } = resizeInfo.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      let delta: number;
+      switch (corner) {
+        case 'se': delta = (dx + dy) / 100; break;
+        case 'ne': delta = (dx - dy) / 100; break;
+        case 'sw': delta = (-dx + dy) / 100; break;
+        case 'nw': delta = (-dx - dy) / 100; break;
+        default: delta = (dx + dy) / 100;
+      }
+      const newScale = Math.max(0.1, Math.min(5, initialScale + delta));
+      updateElement(id, { scale: newScale });
+      return;
+    }
     if (!isDragging || !dragInfo.current) return;
     const { id, startX, startY, initialX, initialY } = dragInfo.current;
     const dx = e.clientX - startX;
@@ -191,8 +426,75 @@ export default function CreateGreeting() {
   };
 
   const handlePointerUp = () => {
+    if (isRotating && rotateInfo.current) {
+      pushHistory(elements);
+      setIsRotating(false);
+      rotateInfo.current = null;
+      return;
+    }
+    if (isResizing && resizeInfo.current) {
+      pushHistory(elements);
+      setIsResizing(false);
+      resizeInfo.current = null;
+      return;
+    }
+    if (isDragging && dragInfo.current) {
+      pushHistory(elements);
+    }
     setIsDragging(false);
     dragInfo.current = null;
+  };
+
+  const handleResizeStart = (e: React.PointerEvent, id: string, corner: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    setIsResizing(true);
+    resizeInfo.current = { id, startX: e.clientX, startY: e.clientY, initialScale: el.scale, corner };
+  };
+
+  const handleRotateStart = (e: React.PointerEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const el = elements.find(el => el.id === id);
+    if (!el) return;
+    const target = (e.target as HTMLElement).closest('[data-element-wrapper]') as HTMLElement;
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
+    setIsRotating(true);
+    rotateInfo.current = { id, centerX, centerY, startAngle, initialRotation: el.rotation };
+  };
+
+  const startEditing = (id: string) => {
+    if (shareUrl) return;
+    const el = elements.find(e => e.id === id);
+    if (!el || el.type !== 'text') return;
+    setEditingId(id);
+    setTimeout(() => {
+      if (editRef.current) {
+        editRef.current.focus();
+        const range = document.createRange();
+        range.selectNodeContents(editRef.current);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+    }, 0);
+  };
+
+  const finishEditing = () => {
+    if (!editingId || !editRef.current) {
+      setEditingId(null);
+      return;
+    }
+    const newContent = editRef.current.innerText;
+    updateElement(editingId, { content: newContent });
+    setEditingId(null);
   };
 
   const handleSave = async () => {
@@ -221,7 +523,10 @@ export default function CreateGreeting() {
         theme: theme.id,
         createdAt: new Date().toISOString(),
         expiresAt: expiresAt,
-        elements: JSON.stringify(elements)
+        elements: JSON.stringify(elements),
+        bgStyle,
+        bgDecoration,
+        openAnimation
       };
       
       await setDoc(docRef, cardData);
@@ -258,14 +563,115 @@ export default function CreateGreeting() {
     setShareUrl('');
     setCustomSlug(Math.random().toString(36).substr(2, 9));
     setElements(DEFAULT_ELEMENTS);
+    historyRef.current = [JSON.parse(JSON.stringify(DEFAULT_ELEMENTS))];
+    historyIndexRef.current = 0;
+    updateHistoryState();
     setTheme(THEMES[2]);
     setActivePage('cover');
     setSelectedId(null);
     setSlugError('');
+    setBgStyle('default');
+    setBgDecoration('sparkles');
+    setOpenAnimation('confetti');
   };
 
   const selectedEl = elements.find(e => e.id === selectedId);
   const activeElements = elements.filter(e => e.page === activePage);
+
+  const handlePreviewOpen = () => {
+    if (previewOpen) return;
+    setPreviewOpen(true);
+    if (openAnimation !== 'none') {
+      setTimeout(() => triggerPreviewAnimation(openAnimation), 400);
+    }
+  };
+
+  const triggerPreviewAnimation = (type: string) => {
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+    switch (type) {
+      case 'confetti': {
+        const duration = 3000;
+        const animEnd = Date.now() + duration;
+        const interval: any = setInterval(() => {
+          const left = animEnd - Date.now();
+          if (left <= 0) return clearInterval(interval);
+          const count = 50 * (left / duration);
+          confetti({ ...defaults, particleCount: count, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+          confetti({ ...defaults, particleCount: count, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+        }, 250);
+        break;
+      }
+      case 'fireworks': {
+        const duration = 4000;
+        const animEnd = Date.now() + duration;
+        const interval: any = setInterval(() => {
+          if (Date.now() > animEnd) return clearInterval(interval);
+          confetti({ particleCount: 80, spread: 100, origin: { x: 0.2 + Math.random() * 0.6, y: 0.1 + Math.random() * 0.3 }, colors: ['#ff0000', '#ff6600', '#ffff00', '#00ff00', '#0099ff', '#6633ff'], startVelocity: 45, gravity: 1.2, ticks: 100, zIndex: 9999 });
+        }, 400);
+        break;
+      }
+      case 'hearts': {
+        const duration = 3000;
+        const animEnd = Date.now() + duration;
+        const interval: any = setInterval(() => {
+          if (Date.now() > animEnd) return clearInterval(interval);
+          confetti({ particleCount: 12, spread: 120, origin: { x: Math.random(), y: -0.05 }, colors: ['#ff69b4', '#ff1493', '#dc143c', '#ff6b81', '#ee5a24'], shapes: ['circle'], scalar: 2, gravity: 1.2, drift: Math.random() * 2 - 1, ticks: 120, zIndex: 9999 });
+        }, 50);
+        break;
+      }
+      case 'stars': {
+        const duration = 3000;
+        const animEnd = Date.now() + duration;
+        const interval: any = setInterval(() => {
+          if (Date.now() > animEnd) return clearInterval(interval);
+          confetti({ particleCount: 10, spread: 360, origin: { x: 0.5, y: 0.5 }, colors: ['#ffd700', '#ffec8b', '#fff8dc', '#ffa500', '#f0e68c'], shapes: ['star'], scalar: 2, gravity: 0.3, startVelocity: 30, ticks: 150, zIndex: 9999 });
+        }, 200);
+        break;
+      }
+    }
+  };
+
+  const openPreview = () => {
+    setShowPreview(true);
+    setPreviewOpen(false);
+  };
+
+  const closePreview = () => {
+    setShowPreview(false);
+    setPreviewOpen(false);
+  };
+
+  const renderPreviewElements = (page: PageType) => {
+    return elements.filter(el => el.page === page).map(el => (
+      <div
+        key={el.id}
+        className="absolute"
+        style={{
+          left: el.x, top: el.y,
+          transform: `scale(${el.scale}) rotate(${el.rotation}deg)`,
+          transformOrigin: 'center', color: el.color,
+          whiteSpace: 'pre-wrap', pointerEvents: 'none'
+        }}
+      >
+        {el.type === 'text' ? (
+          <div className={`${el.font} leading-tight`}>{el.content}</div>
+        ) : el.type === 'image' || (el.type === 'sticker' && (el.content.startsWith('http') || el.content.startsWith('data:'))) ? (
+          <img src={el.content} alt="" className="w-32 object-contain pointer-events-none" draggable={false} />
+        ) : el.type === 'shape' ? (
+          <div className="w-32 h-32 flex items-center justify-center">
+            {(() => {
+              const shapeName = el.content.charAt(0).toUpperCase() + el.content.slice(1);
+              const ShapeIcon = (LucideIcons as any)[shapeName] || (LucideIcons as any)[el.content] || LucideIcons.Circle;
+              return ShapeIcon ? <ShapeIcon className="w-full h-full" fill={el.isFilled ? 'currentColor' : 'none'} strokeWidth={el.isFilled ? 0 : 2} /> : null;
+            })()}
+          </div>
+        ) : (
+          <div className="text-4xl">{el.content}</div>
+        )}
+      </div>
+    ));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col md:flex-row font-sans overflow-hidden" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
@@ -275,7 +681,19 @@ export default function CreateGreeting() {
           <Link to="/" className="flex items-center gap-1 text-slate-900 font-fredoka text-2xl font-bold tracking-tight mb-6">
             Crdly<span className="text-pink-400">.</span>
           </Link>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Pages</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pages</h2>
+            {!shareUrl && (
+              <div className="flex gap-1">
+                <button onClick={undo} disabled={!canUndo} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all" title="Undo (Ctrl+Z)">
+                  <Undo2 size={14} />
+                </button>
+                <button onClick={redo} disabled={!canRedo} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition-all" title="Redo (Ctrl+Y)">
+                  <Redo2 size={14} />
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex gap-1 bg-slate-100/50 p-1 rounded-xl">
             {(['cover', 'insideLeft', 'insideRight'] as PageType[]).map((p) => (
               <button
@@ -295,8 +713,8 @@ export default function CreateGreeting() {
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4 shadow-sm">
                 <Check size={32} />
               </div>
-              <h3 className="font-bold text-slate-700 text-lg font-fredoka">Card Locked</h3>
-              <p className="text-sm">Your card has been saved and is ready to share. Editing is now disabled.</p>
+              <h3 className="font-bold text-slate-700 text-lg font-fredoka">All Done!</h3>
+              <p className="text-sm">Your card is saved and ready to spread some joy. Share it with someone special!</p>
             </div>
           ) : (
             <>
@@ -325,9 +743,24 @@ export default function CreateGreeting() {
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Edit Element</h2>
-                <button onClick={() => deleteElement(selectedEl.id)} className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-colors">
-                  <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => sendToBack(selectedEl.id)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors" title="Send to Back">
+                    <ArrowDownToLine size={14} />
+                  </button>
+                  <button onClick={() => moveLayerDown(selectedEl.id)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors" title="Move Down">
+                    <ArrowDown size={14} />
+                  </button>
+                  <button onClick={() => moveLayerUp(selectedEl.id)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors" title="Move Up">
+                    <ArrowUp size={14} />
+                  </button>
+                  <button onClick={() => bringToFront(selectedEl.id)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors" title="Bring to Front">
+                    <ArrowUpToLine size={14} />
+                  </button>
+                  <div className="w-px h-4 bg-slate-200 mx-0.5" />
+                  <button onClick={() => deleteElement(selectedEl.id)} className="text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors" title="Delete">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
 
               {selectedEl.type === 'text' && (
@@ -513,6 +946,61 @@ export default function CreateGreeting() {
           </div>
 
           {!shareUrl && (
+            <div className="mb-6 space-y-4">
+              <div>
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Page Background</h2>
+                <div className="flex flex-wrap gap-2">
+                  {BACKGROUNDS.map(bg => (
+                    <button
+                      key={bg.id}
+                      onClick={() => setBgStyle(bg.id)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${bgStyle === bg.id ? 'border-slate-800 scale-110 shadow-md' : 'border-white/50 shadow-sm hover:scale-105'}`}
+                      style={{ background: `linear-gradient(135deg, ${bg.colors[0]}, ${bg.colors[1]}, ${bg.colors[2]})` }}
+                      title={bg.name}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Floating Decorations</h2>
+                <div className="flex flex-wrap gap-2">
+                  {BG_DECORATIONS.map(d => {
+                    const Icon = (LucideIcons as any)[d.icon];
+                    return (
+                      <button
+                        key={d.id}
+                        onClick={() => setBgDecoration(d.id)}
+                        className={`p-2 rounded-xl border transition-all ${bgDecoration === d.id ? 'border-violet-500 bg-violet-50 text-violet-600 shadow-sm' : 'border-slate-200/60 bg-white/50 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                        title={d.name}
+                      >
+                        {Icon && <Icon size={16} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Open Animation</h2>
+                <div className="flex flex-wrap gap-2">
+                  {OPEN_ANIMATIONS.map(a => {
+                    const Icon = (LucideIcons as any)[a.icon];
+                    return (
+                      <button
+                        key={a.id}
+                        onClick={() => setOpenAnimation(a.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${openAnimation === a.id ? 'border-violet-500 bg-violet-50 text-violet-600 shadow-sm' : 'border-slate-200/60 bg-white/50 text-slate-500 hover:bg-slate-50 shadow-sm'}`}
+                      >
+                        {Icon && <Icon size={14} />}
+                        {a.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!shareUrl && (
             <div className="mb-6">
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Custom Link</h2>
               <div className="flex items-center bg-white border border-slate-200/60 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-violet-500 transition-all shadow-sm">
@@ -553,20 +1041,29 @@ export default function CreateGreeting() {
               </button>
             </div>
           ) : (
-            <button 
-              onClick={handleSave} 
-              disabled={isSaving}
-              className="w-full py-3 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl font-medium hover:from-violet-600 hover:to-fuchsia-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 disabled:opacity-70"
-            >
-              {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
-              {isSaving ? 'Saving...' : 'Save & Share'}
-            </button>
+            <div className="space-y-3">
+              <button
+                onClick={openPreview}
+                className="w-full py-3 bg-white text-slate-700 border border-slate-200/60 rounded-xl font-medium hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
+              >
+                <Eye size={18} />
+                Preview
+              </button>
+              <button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="w-full py-3 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl font-medium hover:from-violet-600 hover:to-fuchsia-600 transition-all flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25 disabled:opacity-70"
+              >
+                {isSaving ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={18} />}
+                {isSaving ? 'Saving...' : 'Save & Share'}
+              </button>
+            </div>
           )}
         </div>
       </div>
 
       {/* Canvas Area */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-hidden relative" onPointerDown={() => setSelectedId(null)}>
+      <div className="flex-1 flex items-center justify-center p-8 overflow-hidden relative" onPointerDown={() => { if (editingId) finishEditing(); setSelectedId(null); }}>
         {/* The Card Canvas */}
         <div 
           ref={canvasRef}
@@ -576,23 +1073,44 @@ export default function CreateGreeting() {
             backgroundSize: '24px 24px'
           }}
         >
-          {activeElements.map(el => (
+          {activeElements.map((el, idx) => (
             <div
               key={el.id}
-              className={`absolute ${shareUrl ? '' : 'cursor-move'} ${selectedId === el.id ? 'ring-2 ring-violet-500 ring-offset-2 ring-offset-transparent z-50' : !shareUrl ? 'hover:ring-2 hover:ring-slate-300 hover:ring-offset-2 hover:ring-offset-transparent z-10' : 'z-10'}`}
+              className={`absolute ${shareUrl ? '' : 'cursor-move'} ${selectedId === el.id ? 'ring-2 ring-violet-500 ring-offset-2 ring-offset-transparent' : !shareUrl ? 'hover:ring-2 hover:ring-slate-300 hover:ring-offset-2 hover:ring-offset-transparent' : ''}`}
               style={{
                 left: el.x,
                 top: el.y,
+                zIndex: idx + 1,
                 transform: `scale(${el.scale}) rotate(${el.rotation}deg)`,
                 transformOrigin: 'center',
                 color: el.color,
                 whiteSpace: 'pre-wrap',
-                userSelect: 'none'
+                userSelect: editingId === el.id ? 'text' : 'none'
               }}
               onPointerDown={(e) => !shareUrl && handlePointerDown(e, el.id)}
+              onDoubleClick={() => el.type === 'text' && startEditing(el.id)}
+              data-element-wrapper
             >
               {el.type === 'text' ? (
-                <div className={`${el.font} leading-tight`}>{el.content}</div>
+                editingId === el.id ? (
+                  <div
+                    ref={editRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    className={`${el.font} leading-tight outline-none min-w-[20px]`}
+                    style={{ cursor: 'text' }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') { finishEditing(); }
+                      e.stopPropagation();
+                    }}
+                    onBlur={finishEditing}
+                  >
+                    {el.content}
+                  </div>
+                ) : (
+                  <div className={`${el.font} leading-tight`}>{el.content}</div>
+                )
               ) : el.type === 'image' || (el.type === 'sticker' && (el.content.startsWith('http') || el.content.startsWith('data:'))) ? (
                 <img src={el.content} alt="card element" className="w-32 object-contain pointer-events-none" draggable={false} style={{ transform: 'translateZ(0)', willChange: 'transform' }} />
               ) : el.type === 'shape' ? (
@@ -612,6 +1130,38 @@ export default function CreateGreeting() {
               ) : (
                 <div className="text-4xl">{el.content}</div>
               )}
+
+              {/* Resize & rotate handles */}
+              {selectedId === el.id && !shareUrl && !editingId && (
+                <>
+                  <div
+                    className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-violet-500 rounded-full cursor-se-resize shadow-sm border border-white"
+                    onPointerDown={(e) => handleResizeStart(e, el.id, 'se')}
+                  />
+                  <div
+                    className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-violet-500 rounded-full cursor-ne-resize shadow-sm border border-white"
+                    onPointerDown={(e) => handleResizeStart(e, el.id, 'ne')}
+                  />
+                  <div
+                    className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-violet-500 rounded-full cursor-sw-resize shadow-sm border border-white"
+                    onPointerDown={(e) => handleResizeStart(e, el.id, 'sw')}
+                  />
+                  <div
+                    className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-violet-500 rounded-full cursor-nw-resize shadow-sm border border-white"
+                    onPointerDown={(e) => handleResizeStart(e, el.id, 'nw')}
+                  />
+                  {/* Rotation handle */}
+                  <div className="absolute left-1/2 -translate-x-1/2 -top-8 flex flex-col items-center pointer-events-none">
+                    <div
+                      className="w-4 h-4 bg-white border-2 border-violet-500 rounded-full cursor-grab active:cursor-grabbing shadow-sm flex items-center justify-center pointer-events-auto"
+                      onPointerDown={(e) => handleRotateStart(e, el.id)}
+                    >
+                      <RotateCw size={8} className="text-violet-500" />
+                    </div>
+                    <div className="w-px h-3 bg-violet-500/50" />
+                  </div>
+                </>
+              )}
             </div>
           ))}
           
@@ -621,6 +1171,117 @@ export default function CreateGreeting() {
           </div>
         </div>
       </div>
+
+      {/* Preview Overlay */}
+      <AnimatePresence>
+        {showPreview && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className={`fixed inset-0 z-[100] flex flex-col items-center justify-center p-4 sm:p-8 overflow-hidden bg-gradient-to-br ${PREVIEW_BG_MAP[bgStyle] || PREVIEW_BG_MAP.default}`}
+          >
+            {/* Close button */}
+            <button
+              onClick={closePreview}
+              className="absolute top-4 right-4 z-[110] p-2 bg-white/80 backdrop-blur-xl rounded-full shadow-lg hover:bg-white transition-all border border-white/50"
+            >
+              <X size={20} className="text-slate-700" />
+            </button>
+
+            {/* Floating decorations */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            {bgDecoration !== 'none' && (() => {
+              const iconName = DECORATION_ICON_MAP[bgDecoration] || 'Sparkles';
+              const FloatIcon = (LucideIcons as any)[iconName];
+              if (!FloatIcon) return null;
+              return FLOAT_ITEMS.map(item => (
+                <motion.div
+                  key={item.id}
+                  className="absolute text-current"
+                  style={{ left: `${item.x}%`, top: `${item.y}%`, color: bgStyle === 'midnight' ? '#94a3b8' : theme.accent.replace('text-', '').includes('emerald') ? '#6ee7b7' : '#a78bfa' }}
+                  animate={{
+                    y: [0, -15, 0, 15, 0],
+                    x: [0, 8, 0, -8, 0],
+                    rotate: [0, 8, 0, -8, 0],
+                    opacity: [0.12, 0.3, 0.12],
+                    scale: [1, 1.1, 1, 0.9, 1],
+                  }}
+                  transition={{ duration: item.duration, repeat: Infinity, delay: item.delay, ease: 'easeInOut' }}
+                >
+                  <FloatIcon size={item.size} />
+                </motion.div>
+              ));
+            })()}
+            </div>
+
+            {/* Card */}
+            <div className="flex-1 flex items-center justify-center w-full">
+              <div className={`transition-transform duration-1000 ease-in-out ${previewOpen ? 'scale-[0.55] sm:scale-[0.75] md:scale-90 lg:scale-100' : 'scale-100 sm:scale-110'}`}>
+                <motion.div
+                  animate={{ x: previewOpen ? '50%' : '0%' }}
+                  transition={{ duration: 1, type: 'spring', bounce: 0.3 }}
+                  className="relative w-[320px] h-[450px]"
+                  style={{ perspective: '2000px' }}
+                >
+                  {/* Inside Right */}
+                  <div className={`absolute inset-0 ${theme.bg} rounded-r-3xl rounded-l-none shadow-2xl border border-l-0 ${theme.border} overflow-hidden`}>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: previewOpen ? 1 : 0 }}
+                      transition={{ delay: previewOpen ? 0.5 : 0, duration: 0.8 }}
+                      className="w-full h-full relative"
+                    >
+                      {renderPreviewElements('insideRight')}
+                    </motion.div>
+                  </div>
+
+                  {/* Cover (flap) */}
+                  <motion.div
+                    animate={{ rotateY: previewOpen ? -180 : 0 }}
+                    transition={{ duration: 1, type: 'spring', bounce: 0.3 }}
+                    style={{ transformOrigin: 'left', transformStyle: 'preserve-3d' }}
+                    className="absolute inset-0 z-10"
+                  >
+                    {/* Front */}
+                    <div
+                      className={`absolute inset-0 ${theme.bg} rounded-r-3xl rounded-l-none shadow-2xl border ${theme.border} cursor-pointer hover:brightness-95 transition-all overflow-hidden`}
+                      style={{ backfaceVisibility: 'hidden' }}
+                      onClick={handlePreviewOpen}
+                    >
+                      {renderPreviewElements('cover')}
+                    </div>
+                    {/* Back (Inside Left) */}
+                    <div
+                      className={`absolute inset-0 ${theme.bg} rounded-l-3xl rounded-r-none border border-r-0 ${theme.border} overflow-hidden shadow-inner`}
+                      style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                    >
+                      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px', color: 'black' }} />
+                      <div className="w-full h-full relative">
+                        {renderPreviewElements('insideLeft')}
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              </div>
+            </div>
+
+            {/* Hint / replay */}
+            <div className="relative z-10 pb-8">
+              {!previewOpen ? (
+                <p className={`text-sm font-medium ${bgStyle === 'midnight' ? 'text-slate-300' : 'text-slate-500'} animate-pulse`}>Tap the card to open it</p>
+              ) : (
+                <button
+                  onClick={() => { setPreviewOpen(false); }}
+                  className="px-5 py-2.5 bg-white/80 backdrop-blur-xl text-slate-700 rounded-full font-medium text-sm shadow-lg hover:bg-white transition-all border border-white/50"
+                >
+                  Replay
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

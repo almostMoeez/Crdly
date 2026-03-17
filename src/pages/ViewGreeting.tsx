@@ -8,6 +8,39 @@ import { Moon, Stars, Sparkles, Clock } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
+const BACKGROUNDS: Record<string, { gradient: string }> = {
+  default: { gradient: 'from-indigo-100 via-purple-100 to-pink-100' },
+  sunset: { gradient: 'from-orange-200 via-rose-200 to-purple-300' },
+  ocean: { gradient: 'from-cyan-200 via-blue-300 to-indigo-400' },
+  forest: { gradient: 'from-emerald-200 via-green-200 to-teal-200' },
+  midnight: { gradient: 'from-slate-800 via-indigo-900 to-slate-900' },
+  candy: { gradient: 'from-pink-200 via-fuchsia-200 to-violet-300' },
+  aurora: { gradient: 'from-green-300 via-cyan-300 to-blue-300' },
+  warm: { gradient: 'from-amber-200 via-orange-200 to-red-200' },
+};
+
+const DECORATION_ICONS: Record<string, string> = {
+  stars: 'Star',
+  hearts: 'Heart',
+  sparkles: 'Sparkles',
+  clouds: 'Cloud',
+  flowers: 'Flower2',
+  music: 'Music',
+};
+
+const FLOAT_ITEMS = [
+  { id: 0, x: 5, y: 8, size: 22, delay: 0, duration: 7 },
+  { id: 1, x: 88, y: 5, size: 18, delay: 1.2, duration: 9 },
+  { id: 2, x: 12, y: 75, size: 26, delay: 0.5, duration: 6 },
+  { id: 3, x: 92, y: 70, size: 20, delay: 2, duration: 8 },
+  { id: 4, x: 50, y: 3, size: 16, delay: 0.8, duration: 10 },
+  { id: 5, x: 3, y: 45, size: 24, delay: 1.5, duration: 7 },
+  { id: 6, x: 95, y: 40, size: 18, delay: 0.3, duration: 9 },
+  { id: 7, x: 30, y: 90, size: 20, delay: 2.5, duration: 6 },
+  { id: 8, x: 70, y: 88, size: 22, delay: 1, duration: 8 },
+  { id: 9, x: 55, y: 50, size: 14, delay: 3, duration: 11 },
+];
+
 const THEMES = {
   emerald: { bg: 'bg-emerald-100', border: 'border-emerald-300', text: 'text-emerald-900', accent: 'text-emerald-600', icon: 'text-emerald-400' },
   rose: { bg: 'bg-rose-100', border: 'border-rose-300', text: 'text-rose-900', accent: 'text-rose-600', icon: 'text-rose-400' },
@@ -38,6 +71,9 @@ interface CardData {
   id: string;
   theme: string;
   elements: CardElement[];
+  bgStyle: string;
+  bgDecoration: string;
+  openAnimation: string;
 }
 
 export default function ViewGreeting() {
@@ -70,7 +106,10 @@ export default function ViewGreeting() {
             setData({
               id: cardData.id,
               theme: cardData.theme,
-              elements: JSON.parse(cardData.elements)
+              elements: JSON.parse(cardData.elements),
+              bgStyle: cardData.bgStyle || 'default',
+              bgDecoration: cardData.bgDecoration || 'sparkles',
+              openAnimation: cardData.openAnimation || 'confetti'
             });
           } else {
             setError(true);
@@ -88,6 +127,9 @@ export default function ViewGreeting() {
             setData({
               id: 'legacy',
               theme: decoded.th || 'gold',
+              bgStyle: 'default',
+              bgDecoration: 'sparkles',
+              openAnimation: 'confetti',
               elements: [
                 { id: '1', type: 'sticker', content: '🌙', x: 140, y: 80, scale: 3, rotation: 0, color: '#d97706', font: 'font-sans', page: 'cover' },
                 { id: '2', type: 'text', content: 'Eid Mubarak!', x: 60, y: 200, scale: 1.5, rotation: 0, color: '#1c1917', font: 'font-serif', page: 'cover' },
@@ -116,7 +158,19 @@ export default function ViewGreeting() {
   const handleOpen = () => {
     if (isOpen) return;
     setIsOpen(true);
-    setTimeout(triggerConfetti, 400);
+    const animType = data?.openAnimation || 'confetti';
+    if (animType !== 'none') {
+      setTimeout(() => triggerOpenAnimation(animType), 400);
+    }
+  };
+
+  const triggerOpenAnimation = (type: string) => {
+    switch (type) {
+      case 'confetti': triggerConfetti(); break;
+      case 'fireworks': triggerFireworks(); break;
+      case 'hearts': triggerHeartsAnim(); break;
+      case 'stars': triggerStarsAnim(); break;
+    }
   };
 
   const triggerConfetti = () => {
@@ -137,6 +191,67 @@ export default function ViewGreeting() {
       confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
       confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
     }, 250);
+  };
+
+  const triggerFireworks = () => {
+    const duration = 4000;
+    const animationEnd = Date.now() + duration;
+    const interval: any = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) return clearInterval(interval);
+      confetti({
+        particleCount: 80,
+        spread: 100,
+        origin: { x: 0.2 + Math.random() * 0.6, y: 0.1 + Math.random() * 0.3 },
+        colors: ['#ff0000', '#ff6600', '#ffff00', '#00ff00', '#0099ff', '#6633ff'],
+        startVelocity: 45,
+        gravity: 1.2,
+        ticks: 100,
+        zIndex: 50,
+      });
+    }, 400);
+  };
+
+  const triggerHeartsAnim = () => {
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const interval: any = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) return clearInterval(interval);
+      confetti({
+        particleCount: 12,
+        spread: 120,
+        origin: { x: Math.random(), y: -0.05 },
+        colors: ['#ff69b4', '#ff1493', '#dc143c', '#ff6b81', '#ee5a24'],
+        shapes: ['circle'],
+        scalar: 2,
+        gravity: 1.2,
+        drift: Math.random() * 2 - 1,
+        ticks: 120,
+        zIndex: 50,
+      });
+    }, 50);
+  };
+
+  const triggerStarsAnim = () => {
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    const interval: any = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) return clearInterval(interval);
+      confetti({
+        particleCount: 10,
+        spread: 360,
+        origin: { x: 0.5, y: 0.5 },
+        colors: ['#ffd700', '#ffec8b', '#fff8dc', '#ffa500', '#f0e68c'],
+        shapes: ['star'],
+        scalar: 2,
+        gravity: 0.3,
+        startVelocity: 30,
+        ticks: 150,
+        zIndex: 50,
+      });
+    }, 200);
   };
 
   if (isLoading) {
@@ -178,6 +293,7 @@ export default function ViewGreeting() {
   }
 
   const theme = THEMES[data.theme as keyof typeof THEMES] || THEMES.gold;
+  const bgConfig = BACKGROUNDS[data.bgStyle] || BACKGROUNDS.default;
 
   const renderElements = (page: PageType) => {
     return data.elements.filter(el => el.page === page).map(el => (
@@ -221,30 +337,36 @@ export default function ViewGreeting() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 relative overflow-hidden ${theme.bg} transition-colors duration-1000`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 relative overflow-hidden bg-gradient-to-br ${bgConfig.gradient} transition-colors duration-1000`}>
       {/* Decorative Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
-        <motion.div 
-          animate={{ rotate: 360 }} 
-          transition={{ duration: 150, repeat: Infinity, ease: "linear" }}
-          className={`absolute -top-32 -right-32 ${theme.icon} opacity-20`}
-        >
-          <Moon size={300} strokeWidth={0.5} />
-        </motion.div>
-        <motion.div 
-          animate={{ y: [0, -30, 0], opacity: [0.5, 1, 0.5] }} 
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-          className={`absolute top-20 left-10 ${theme.icon}`}
-        >
-          <Stars size={48} />
-        </motion.div>
-        <motion.div 
-          animate={{ y: [0, 20, 0], opacity: [0.3, 0.8, 0.3] }} 
-          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-          className={`absolute bottom-20 right-20 ${theme.icon}`}
-        >
-          <Sparkles size={32} />
-        </motion.div>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {data.bgDecoration !== 'none' && (() => {
+          const iconName = DECORATION_ICONS[data.bgDecoration] || 'Sparkles';
+          const Icon = (LucideIcons as any)[iconName];
+          if (!Icon) return null;
+          return FLOAT_ITEMS.map(item => (
+            <motion.div
+              key={item.id}
+              className={`absolute ${theme.icon}`}
+              style={{ left: `${item.x}%`, top: `${item.y}%` }}
+              animate={{
+                y: [0, -15, 0, 15, 0],
+                x: [0, 8, 0, -8, 0],
+                rotate: [0, 8, 0, -8, 0],
+                opacity: [0.12, 0.3, 0.12],
+                scale: [1, 1.1, 1, 0.9, 1],
+              }}
+              transition={{
+                duration: item.duration,
+                repeat: Infinity,
+                delay: item.delay,
+                ease: 'easeInOut',
+              }}
+            >
+              <Icon size={item.size} />
+            </motion.div>
+          ));
+        })()}
       </div>
 
       <div className="flex-1 flex items-center justify-center w-full">

@@ -31,12 +31,15 @@ service cloud.firestore {
     }
 
     function isValidCard(data) {
-      return hasOnlyAllowedFields(['id', 'theme', 'createdAt', 'expiresAt', 'elements']) &&
+      return hasOnlyAllowedFields(['id', 'theme', 'createdAt', 'expiresAt', 'elements', 'bgStyle', 'bgDecoration', 'openAnimation']) &&
              data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
              data.theme is string && data.theme.size() > 0 && data.theme.size() < 50 &&
              isValidDateString(data.createdAt) &&
              data.expiresAt is number && data.expiresAt > 0 &&
-             data.elements is string && data.elements.size() < 200000; // Max 200KB for elements JSON
+             data.elements is string && data.elements.size() < 200000 &&
+             data.bgStyle is string && data.bgStyle.size() < 50 &&
+             data.bgDecoration is string && data.bgDecoration.size() < 50 &&
+             data.openAnimation is string && data.openAnimation.size() < 50;
     }
 
     match /cards/{cardId} {
