@@ -30,7 +30,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#fdfbf7] font-sans overflow-x-hidden">
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
+      <nav className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 max-w-6xl mx-auto">
         <span className="text-2xl font-bold text-slate-900 font-fredoka tracking-tight">
           Crdly<span className="text-pink-400">.</span>
         </span>
@@ -43,7 +43,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative max-w-6xl mx-auto px-6 pt-12 md:pt-24 pb-32 md:pb-44">
+      <section className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 md:pt-24 pb-24 sm:pb-32 md:pb-44">
         {/* Floating Mini Cards — decorative */}
         {FLOATING_CARDS.map((card) => (
           <motion.div
@@ -82,7 +82,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-5xl md:text-7xl font-bold leading-[1.1] tracking-tight text-slate-900 font-fredoka"
+            className="text-4xl sm:text-5xl md:text-7xl font-bold leading-[1.1] tracking-tight text-slate-900 font-fredoka"
           >
             Cards that feel{' '}
             <span className="relative inline-block">
@@ -100,7 +100,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-lg md:text-xl text-slate-500 max-w-xl mx-auto leading-relaxed"
+            className="mt-5 sm:mt-6 text-base sm:text-lg md:text-xl text-slate-500 max-w-xl mx-auto leading-relaxed"
           >
             Design a greeting card with stickers, custom text &amp; fun themes — share it with a link in seconds.
           </motion.p>
@@ -113,7 +113,7 @@ export default function LandingPage() {
           >
             <Link
               to="/create"
-              className="group px-8 py-4 bg-slate-900 text-white rounded-2xl text-lg font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 flex items-center gap-3"
+              className="group w-full sm:w-auto px-8 py-4 bg-slate-900 text-white rounded-2xl text-base sm:text-lg font-semibold hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-3"
             >
               <Palette className="w-5 h-5" />
               Make a Card

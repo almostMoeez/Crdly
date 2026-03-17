@@ -156,7 +156,10 @@ export default function ViewGreeting() {
   }, [searchParams]);
 
   const handleOpen = () => {
-    if (isOpen) return;
+    if (isOpen) {
+      setIsOpen(false);
+      return;
+    }
     setIsOpen(true);
     const animType = data?.openAnimation || 'confetti';
     if (animType !== 'none') {
@@ -370,7 +373,7 @@ export default function ViewGreeting() {
       </div>
 
       <div className="flex-1 flex items-center justify-center w-full">
-        <div className={`transition-transform duration-1000 ease-in-out ${isOpen ? 'scale-[0.55] sm:scale-[0.75] md:scale-90 lg:scale-100' : 'scale-100 sm:scale-110'}`}>
+        <div className={`transition-transform duration-1000 ease-in-out ${isOpen ? 'scale-[0.48] sm:scale-[0.55] md:scale-90 lg:scale-100' : 'scale-[0.85] sm:scale-100 md:scale-110'}`}>
           <motion.div
             animate={{ x: isOpen ? '50%' : '0%' }}
             transition={{ duration: 1, type: "spring", bounce: 0.3 }}
@@ -410,8 +413,9 @@ export default function ViewGreeting() {
 
               {/* Back of Cover (Inside Left) */}
               <div 
-                className={`absolute inset-0 ${theme.bg} rounded-l-3xl rounded-r-none border border-r-0 ${theme.border} overflow-hidden shadow-inner`}
+                className={`absolute inset-0 ${theme.bg} rounded-l-3xl rounded-r-none border border-r-0 ${theme.border} overflow-hidden shadow-inner cursor-pointer`}
                 style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                onClick={handleOpen}
               >
                  {/* Decorative pattern */}
                  <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px', color: 'black' }}></div>
@@ -426,16 +430,32 @@ export default function ViewGreeting() {
       </div>
 
       <AnimatePresence>
+        {!isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="relative z-10 pb-4 sm:pb-8"
+          >
+            <p className={`text-xs sm:text-sm font-medium animate-pulse ${data.bgStyle === 'midnight' ? 'text-slate-300' : 'text-slate-500'}`}>
+              Tap the card to open it
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.5, duration: 0.8 }}
-            className="relative z-10 pb-8"
+            className="relative z-10 pb-4 sm:pb-8"
           >
             <Link 
               to="/" 
-              className="px-6 py-3 bg-white/80 backdrop-blur-xl text-slate-700 rounded-full font-medium text-sm shadow-lg hover:bg-white hover:shadow-xl transition-all flex items-center gap-2 border border-white/50"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white/80 backdrop-blur-xl text-slate-700 rounded-full font-medium text-xs sm:text-sm shadow-lg hover:bg-white hover:shadow-xl transition-all flex items-center gap-2 border border-white/50"
             >
               <Sparkles size={16} className="text-violet-500" />
               Create your own greeting

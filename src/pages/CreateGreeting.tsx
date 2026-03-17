@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import * as LucideIcons from 'lucide-react';
-import { Sparkles, Type, Smile, Image as ImageIcon, Save, Copy, Check, Trash2, Settings, Search, Link as LinkIcon, Plus, Shapes, Eye, X, Undo2, Redo2, RotateCw, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown } from 'lucide-react';
+import { Sparkles, Type, Smile, Image as ImageIcon, Save, Copy, Check, Trash2, Settings, Search, Link as LinkIcon, Plus, Shapes, Eye, X, Undo2, Redo2, RotateCw, ArrowUpToLine, ArrowDownToLine, ArrowUp, ArrowDown, Palette, Wand2, ChevronDown } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 import { db } from '../firebase';
@@ -102,6 +102,14 @@ const FLOAT_ITEMS = [
   { id: 9, x: 55, y: 50, size: 14, delay: 3, duration: 11 },
 ];
 
+const DEFAULT_STICKERS = [
+  'https://media.giphy.com/media/xT0GqssRweIhlz209i/giphy.gif',
+  'https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif',
+  'https://media.giphy.com/media/3oz8xRF0v9WMAUNG1O/giphy.gif',
+  'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
+  'https://media.giphy.com/media/l4pTfx2qLszoacZRS/giphy.gif',
+];
+
 const DEFAULT_ELEMENTS: CardElement[] = [
   { id: '1', type: 'sticker', content: 'https://media.tenor.com/Z1Gg1aG1e_8AAAAi/happy-birthday.gif', x: 100, y: 60, scale: 1.5, rotation: 0, color: '#f59e0b', font: 'font-sans', page: 'cover' },
   { id: '2', type: 'text', content: 'Happy Birthday!', x: 60, y: 200, scale: 1.5, rotation: -5, color: '#ec4899', font: 'font-pacifico', page: 'cover' },
@@ -129,6 +137,11 @@ export default function CreateGreeting() {
   // Preview mode
   const [showPreview, setShowPreview] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Mobile panel state
+  type MobilePanel = 'tools' | 'edit' | 'settings' | null;
+  const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
+  const [mobileEditOpen, setMobileEditOpen] = useState(false);
 
   // Undo/Redo history
   const historyRef = useRef<CardElement[][]>([]);
@@ -185,12 +198,51 @@ export default function CreateGreeting() {
   const [stickerQuery, setStickerQuery] = useState('cute');
   const [stickerResults, setStickerResults] = useState<{id: string, preview: string, url: string}[]>([]);
   const [isSearchingStickers, setIsSearchingStickers] = useState(false);
+  const [stickerOffset, setStickerOffset] = useState(0);
+  const [stickerHasMore, setStickerHasMore] = useState(true);
+  const [isLoadingMoreStickers, setIsLoadingMoreStickers] = useState(false);
 
   // Shape Search State
   const [shapeQuery, setShapeQuery] = useState('');
   const [shapeResults, setShapeResults] = useState<string[]>([]);
+  const [shapeLimit, setShapeLimit] = useState(20);
 
   const currentElementType = elements.find(e => e.id === selectedId)?.type;
+
+  const loadMoreStickers = async () => {
+    if (isLoadingMoreStickers || !stickerHasMore) return;
+    setIsLoadingMoreStickers(true);
+    try {
+      const q = stickerQuery.trim() || 'cute';
+      const res = await fetch(`https://api.giphy.com/v1/stickers/search?api_key=${import.meta.env.VITE_GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=24&offset=${stickerOffset}&rating=g`);
+      const data = await res.json();
+      if (!data.data || data.data.length === 0) {
+        setStickerHasMore(false);
+        return;
+      }
+      const urls = data.data.map((r: any) => ({
+        id: r.id,
+        preview: r.images?.fixed_height_small?.url || r.images?.fixed_width?.url || '',
+        url: r.images?.original?.url || r.images?.fixed_width?.url || ''
+      })).filter((s: any) => s.url);
+      setStickerResults(prev => [...prev, ...urls]);
+      setStickerOffset(prev => prev + 24);
+      setStickerHasMore(data.pagination ? (stickerOffset + 24) < data.pagination.total_count : urls.length === 24);
+    } catch (error) {
+      console.error("Failed to load more stickers", error);
+    } finally {
+      setIsLoadingMoreStickers(false);
+    }
+  };
+
+  const loadMoreShapes = () => {
+    setShapeLimit(prev => prev + 20);
+  };
+
+  // Reset shape limit when query changes
+  useEffect(() => {
+    setShapeLimit(20);
+  }, [shapeQuery]);
 
   // Shape Search Effect
   useEffect(() => {
@@ -207,25 +259,30 @@ export default function CreateGreeting() {
     );
     
     if (!q) {
-      setShapeResults(['Circle', 'Square', 'Triangle', 'Hexagon', 'Octagon', 'Diamond', 'Star', 'Heart', 'Cloud', 'Shield']);
+      const defaults = ['Circle', 'Square', 'Triangle', 'Hexagon', 'Octagon', 'Diamond', 'Star', 'Heart', 'Cloud', 'Shield', 'Pentagon', 'Moon', 'Sun', 'Zap', 'Flame', 'Droplet', 'Leaf', 'Crown', 'Gem', 'Award'];
+      const isMobile = window.innerWidth < 768;
+      setShapeResults(isMobile ? defaults.slice(0, 18) : defaults);
       return;
     }
     
-    const results = allIcons.filter(iconName => iconName.toLowerCase().includes(q)).slice(0, 30);
+    const results = allIcons.filter(iconName => iconName.toLowerCase().includes(q)).slice(0, shapeLimit);
     setShapeResults(results);
-  }, [shapeQuery, currentElementType]);
+  }, [shapeQuery, currentElementType, shapeLimit]);
 
   useEffect(() => {
     if (currentElementType !== 'sticker') return;
 
     const fetchStickers = async () => {
       setIsSearchingStickers(true);
+      setStickerOffset(0);
+      setStickerHasMore(true);
       try {
         const q = stickerQuery.trim() || 'cute';
-        const res = await fetch(`https://api.giphy.com/v1/stickers/search?api_key=${import.meta.env.VITE_GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=24&rating=g`);
+        const res = await fetch(`https://api.giphy.com/v1/stickers/search?api_key=${import.meta.env.VITE_GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=24&offset=0&rating=g`);
         const data = await res.json();
         if (!data.data) {
           setStickerResults([]);
+          setStickerHasMore(false);
           return;
         }
         const urls = data.data.map((r: any) => ({
@@ -234,6 +291,8 @@ export default function CreateGreeting() {
           url: r.images?.original?.url || r.images?.fixed_width?.url || ''
         })).filter((s: any) => s.url);
         setStickerResults(urls);
+        setStickerOffset(24);
+        setStickerHasMore(data.pagination ? data.pagination.total_count > 24 : urls.length === 24);
       } catch (error) {
         console.error("Failed to fetch stickers", error);
         setStickerResults([]);
@@ -268,6 +327,17 @@ export default function CreateGreeting() {
     }
   }, []);
 
+  // Prevent touch scrolling on the canvas (Safari/iOS)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const prevent = (e: TouchEvent) => {
+      if (e.touches.length === 1) e.preventDefault();
+    };
+    canvas.addEventListener('touchmove', prevent, { passive: false });
+    return () => canvas.removeEventListener('touchmove', prevent);
+  }, []);
+
   const addElement = (type: ElementType, content: string) => {
     const newEl: CardElement = {
       id: Math.random().toString(36).substr(2, 9),
@@ -283,6 +353,9 @@ export default function CreateGreeting() {
     };
     pushHistory([...elements, newEl]);
     setSelectedId(newEl.id);
+    // Close any open mobile panels when adding
+    setMobileEditOpen(false);
+    setMobilePanel(null);
   };
 
   const updateElement = (id: string, updates: Partial<CardElement>) => {
@@ -296,7 +369,7 @@ export default function CreateGreeting() {
 
   const deleteElement = (id: string) => {
     pushHistory(elements.filter(el => el.id !== id));
-    if (selectedId === id) setSelectedId(null);
+    if (selectedId === id) { setSelectedId(null); setMobileEditOpen(false); }
   };
 
   const moveLayerUp = (id: string) => {
@@ -383,15 +456,25 @@ export default function CreateGreeting() {
   const handlePointerDown = (e: React.PointerEvent, id: string) => {
     if (isResizing) return;
     e.stopPropagation();
+    e.preventDefault();
     if (editingId && editingId !== id) {
       finishEditing();
     }
-    setSelectedId(id);
+    // Two-tap behavior on mobile: first tap selects, second tap opens edit sheet
+    if (selectedId === id) {
+      setMobileEditOpen(true);
+    } else {
+      setSelectedId(id);
+      setMobileEditOpen(false);
+      setMobilePanel(null); // close settings if open
+    }
     setIsDragging(true);
     const el = elements.find(e => e.id === id);
     if (el) {
       dragInfo.current = { id, startX: e.clientX, startY: e.clientY, initialX: el.x, initialY: el.y };
     }
+    // Capture pointer for reliable drag on touch
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -452,6 +535,7 @@ export default function CreateGreeting() {
     if (!el) return;
     setIsResizing(true);
     resizeInfo.current = { id, startX: e.clientX, startY: e.clientY, initialScale: el.scale, corner };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
   const handleRotateStart = (e: React.PointerEvent, id: string) => {
@@ -467,6 +551,7 @@ export default function CreateGreeting() {
     const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI);
     setIsRotating(true);
     rotateInfo.current = { id, centerX, centerY, startAngle, initialRotation: el.rotation };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
 
   const startEditing = (id: string) => {
@@ -674,9 +759,9 @@ export default function CreateGreeting() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col md:flex-row font-sans overflow-hidden" onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
-      {/* Sidebar Tools */}
-      <div className="w-full md:w-80 bg-white/80 backdrop-blur-xl border-r border-white/50 flex flex-col h-auto md:h-screen overflow-y-auto z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col md:flex-row font-sans overflow-hidden" style={{ touchAction: 'pan-x pan-y', WebkitUserSelect: 'none' }} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+      {/* ===== DESKTOP SIDEBAR (hidden on mobile) ===== */}
+      <div className="hidden md:flex w-80 bg-white/80 backdrop-blur-xl border-r border-white/50 flex-col h-screen overflow-y-auto z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-6 border-b border-slate-100/50">
           <Link to="/" className="flex items-center gap-1 text-slate-900 font-fredoka text-2xl font-bold tracking-tight mb-6">
             Crdly<span className="text-pink-400">.</span>
@@ -724,7 +809,7 @@ export default function CreateGreeting() {
               <Type size={20} />
               <span className="text-xs font-medium">Text</span>
             </button>
-            <button onClick={() => addElement('sticker', 'https://media.tenor.com/1J12J5_w_50AAAAi/star-sparkle.gif')} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border border-slate-200/60 hover:border-violet-300 hover:bg-violet-50/50 transition-all text-slate-600 hover:text-violet-600 bg-white/50 shadow-sm">
+            <button onClick={() => addElement('sticker', DEFAULT_STICKERS[Math.floor(Math.random() * DEFAULT_STICKERS.length)])} className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl border border-slate-200/60 hover:border-violet-300 hover:bg-violet-50/50 transition-all text-slate-600 hover:text-violet-600 bg-white/50 shadow-sm">
               <Smile size={20} />
               <span className="text-xs font-medium">Sticker</span>
             </button>
@@ -806,6 +891,11 @@ export default function CreateGreeting() {
                           );
                         })}
                       </div>
+                      {shapeQuery && shapeResults.length >= shapeLimit && (
+                        <button onClick={loadMoreShapes} className="w-full mt-2 py-1.5 text-xs text-violet-600 font-medium hover:bg-violet-50 rounded-lg transition-colors">
+                          Load more shapes
+                        </button>
+                      )}
                       {shapeResults.length === 0 && (
                         <div className="flex items-center justify-center h-full text-slate-400 text-sm">No shapes found</div>
                       )}
@@ -848,17 +938,24 @@ export default function CreateGreeting() {
                     {isSearchingStickers ? (
                       <div className="flex items-center justify-center h-full text-slate-400 text-sm">Searching...</div>
                     ) : stickerResults.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        {stickerResults.map(s => (
-                          <button
-                            key={s.id}
-                            onClick={() => updateElement(selectedEl.id, { content: s.url })}
-                            className={`border-2 rounded-xl overflow-hidden hover:border-amber-400 transition-colors bg-white ${selectedEl.content === s.url ? 'border-amber-500 ring-2 ring-amber-200' : 'border-transparent shadow-sm'}`}
-                          >
-                            <img src={s.preview} alt="sticker" className="w-full h-auto object-contain" />
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          {stickerResults.map(s => (
+                            <button
+                              key={s.id}
+                              onClick={() => updateElement(selectedEl.id, { content: s.url })}
+                              className={`border-2 rounded-xl overflow-hidden hover:border-amber-400 transition-colors bg-white ${selectedEl.content === s.url ? 'border-amber-500 ring-2 ring-amber-200' : 'border-transparent shadow-sm'}`}
+                            >
+                              <img src={s.preview} alt="sticker" className="w-full h-auto object-contain" />
+                            </button>
+                          ))}
+                        </div>
+                        {stickerHasMore && (
+                          <button onClick={loadMoreStickers} disabled={isLoadingMoreStickers} className="w-full mt-2 py-1.5 text-xs text-violet-600 font-medium hover:bg-violet-50 rounded-lg transition-colors disabled:opacity-50">
+                            {isLoadingMoreStickers ? 'Loading...' : 'Load more stickers'}
                           </button>
-                        ))}
-                      </div>
+                        )}
+                      </>
                     ) : (
                       <div className="flex items-center justify-center h-full text-slate-400 text-sm">No stickers found</div>
                     )}
@@ -1062,13 +1159,47 @@ export default function CreateGreeting() {
         </div>
       </div>
 
+      {/* ===== MOBILE TOP BAR (visible on mobile only) ===== */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white/90 backdrop-blur-xl border-b border-slate-100/50 z-20">
+        <Link to="/" className="flex items-center gap-1 text-slate-900 font-fredoka text-lg font-bold tracking-tight">
+          Crdly<span className="text-pink-400">.</span>
+        </Link>
+        <div className="flex items-center gap-1">
+          {!shareUrl && (
+            <>
+              <button onClick={undo} disabled={!canUndo} className="p-2 rounded-lg text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-all" title="Undo">
+                <Undo2 size={16} />
+              </button>
+              <button onClick={redo} disabled={!canRedo} className="p-2 rounded-lg text-slate-400 hover:text-slate-600 disabled:opacity-30 transition-all" title="Redo">
+                <Redo2 size={16} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ===== MOBILE PAGE TABS (visible on mobile only) ===== */}
+      <div className="md:hidden flex gap-1 bg-white/70 backdrop-blur-sm mx-4 mt-2 p-1 rounded-xl z-10">
+        {(['cover', 'insideLeft', 'insideRight'] as PageType[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => { setActivePage(p); setSelectedId(null); }}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${activePage === p ? 'bg-white shadow-sm text-violet-700 ring-1 ring-slate-200/50' : 'text-slate-500'}`}
+          >
+            {p === 'cover' ? 'Cover' : p === 'insideLeft' ? 'Inside L' : 'Inside R'}
+          </button>
+        ))}
+      </div>
+
       {/* Canvas Area */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-hidden relative" onPointerDown={() => { if (editingId) finishEditing(); setSelectedId(null); }}>
+      <div className="flex-1 flex items-center justify-center p-4 pb-36 md:p-8 md:pb-8 overflow-hidden relative" onPointerDown={() => { if (editingId) finishEditing(); setSelectedId(null); setMobilePanel(null); setMobileEditOpen(false); }}>
         {/* The Card Canvas */}
         <div 
           ref={canvasRef}
-          className={`relative w-[320px] h-[450px] shadow-2xl overflow-hidden transition-colors duration-500 ${theme.bg} ${theme.border} border ${activePage === 'insideLeft' ? 'rounded-l-3xl rounded-r-none border-r-0' : activePage === 'insideRight' ? 'rounded-r-3xl rounded-l-none border-l-0' : 'rounded-r-3xl rounded-l-sm'}`}
+          className={`relative w-[280px] h-[395px] md:w-[320px] md:h-[450px] shadow-2xl overflow-hidden transition-colors duration-500 ${theme.bg} ${theme.border} border ${activePage === 'insideLeft' ? 'rounded-l-3xl rounded-r-none border-r-0' : activePage === 'insideRight' ? 'rounded-r-3xl rounded-l-none border-l-0' : 'rounded-r-3xl rounded-l-sm'}`}
           style={{
+            touchAction: 'none',
+            WebkitUserSelect: 'none',
             backgroundImage: activePage === 'insideLeft' ? 'radial-gradient(circle at 2px 2px, rgba(0,0,0,0.05) 1px, transparent 0)' : 'none',
             backgroundSize: '24px 24px'
           }}
@@ -1082,10 +1213,13 @@ export default function CreateGreeting() {
                 top: el.y,
                 zIndex: idx + 1,
                 transform: `scale(${el.scale}) rotate(${el.rotation}deg)`,
+                WebkitTransform: `scale(${el.scale}) rotate(${el.rotation}deg)`,
                 transformOrigin: 'center',
                 color: el.color,
                 whiteSpace: 'pre-wrap',
-                userSelect: editingId === el.id ? 'text' : 'none'
+                touchAction: 'none',
+                userSelect: editingId === el.id ? 'text' : 'none',
+                WebkitUserSelect: editingId === el.id ? 'text' : 'none',
               }}
               onPointerDown={(e) => !shareUrl && handlePointerDown(e, el.id)}
               onDoubleClick={() => el.type === 'text' && startEditing(el.id)}
@@ -1172,6 +1306,302 @@ export default function CreateGreeting() {
         </div>
       </div>
 
+      {/* ===== MOBILE BOTTOM TOOLBAR (visible on mobile only) ===== */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/50 safe-area-inset-bottom">
+        {shareUrl ? (
+          <div className="p-3 space-y-2">
+            <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium flex items-center gap-2">
+              <Check size={14} /> Saved!
+            </div>
+            <div className="flex gap-2">
+              <button onClick={copyLink} className="flex-1 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-1.5">
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copied!' : 'Copy Link'}
+              </button>
+              <Link to={`/view?id=${shareUrl.split('id=')[1]}`} target="_blank" className="py-2.5 px-4 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-medium flex items-center justify-center">
+                <Eye size={14} />
+              </Link>
+              <button onClick={handleCreateNew} className="py-2.5 px-4 bg-white text-slate-500 border border-slate-200 rounded-xl text-sm font-medium flex items-center justify-center">
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Add element bar */}
+            <div className="flex items-center justify-around px-2 py-2 border-b border-slate-100/50">
+              <button onClick={() => addElement('text', 'New Text')} className="flex flex-col items-center gap-0.5 p-2 rounded-xl text-slate-500 active:bg-violet-50 active:text-violet-600">
+                <Type size={18} />
+                <span className="text-[10px] font-medium">Text</span>
+              </button>
+              <button onClick={() => addElement('sticker', DEFAULT_STICKERS[Math.floor(Math.random() * DEFAULT_STICKERS.length)])} className="flex flex-col items-center gap-0.5 p-2 rounded-xl text-slate-500 active:bg-violet-50 active:text-violet-600">
+                <Smile size={18} />
+                <span className="text-[10px] font-medium">Sticker</span>
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center gap-0.5 p-2 rounded-xl text-slate-500 active:bg-violet-50 active:text-violet-600">
+                <ImageIcon size={18} />
+                <span className="text-[10px] font-medium">Image</span>
+              </button>
+              <button onClick={() => addElement('shape', 'Circle')} className="flex flex-col items-center gap-0.5 p-2 rounded-xl text-slate-500 active:bg-violet-50 active:text-violet-600">
+                <Shapes size={18} />
+                <span className="text-[10px] font-medium">Shape</span>
+              </button>
+              <button onClick={() => setMobilePanel(mobilePanel === 'settings' ? null : 'settings')} className={`flex flex-col items-center gap-0.5 p-2 rounded-xl ${mobilePanel === 'settings' ? 'text-violet-600 bg-violet-50' : 'text-slate-500'} active:bg-violet-50 active:text-violet-600`}>
+                <Palette size={18} />
+                <span className="text-[10px] font-medium">Style</span>
+              </button>
+            </div>
+            {/* Action buttons */}
+            <div className="flex gap-2 p-3">
+              <button onClick={openPreview} className="flex-1 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-xl text-sm font-medium flex items-center justify-center gap-1.5">
+                <Eye size={14} /> Preview
+              </button>
+              <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-2.5 bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-1.5 disabled:opacity-70">
+                {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save size={14} />}
+                {isSaving ? 'Saving...' : 'Save & Share'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ===== MOBILE BOTTOM SHEET: Element Editor ===== */}
+      <AnimatePresence>
+        {selectedEl && mobileEditOpen && !shareUrl && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+            className="md:hidden fixed bottom-[120px] left-0 right-0 z-30 bg-white/95 backdrop-blur-xl rounded-t-2xl border-t border-slate-200/50 max-h-[50vh] overflow-y-auto shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center pt-2 pb-1">
+              <div className="w-8 h-1 bg-slate-300 rounded-full" />
+            </div>
+            <div className="px-4 pb-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Edit Element</span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => sendToBack(selectedEl.id)} className="text-slate-400 p-1.5 rounded-lg active:bg-slate-100"><ArrowDownToLine size={14} /></button>
+                  <button onClick={() => moveLayerDown(selectedEl.id)} className="text-slate-400 p-1.5 rounded-lg active:bg-slate-100"><ArrowDown size={14} /></button>
+                  <button onClick={() => moveLayerUp(selectedEl.id)} className="text-slate-400 p-1.5 rounded-lg active:bg-slate-100"><ArrowUp size={14} /></button>
+                  <button onClick={() => bringToFront(selectedEl.id)} className="text-slate-400 p-1.5 rounded-lg active:bg-slate-100"><ArrowUpToLine size={14} /></button>
+                  <div className="w-px h-4 bg-slate-200 mx-0.5" />
+                  <button onClick={() => { setMobileEditOpen(false); }} className="text-slate-400 p-1.5 rounded-lg active:bg-slate-100"><ChevronDown size={14} /></button>
+                  <button onClick={() => deleteElement(selectedEl.id)} className="text-rose-500 p-1.5 rounded-lg active:bg-rose-50"><Trash2 size={14} /></button>
+                </div>
+              </div>
+
+              {selectedEl.type === 'text' && (
+                <textarea
+                  value={selectedEl.content}
+                  onChange={(e) => updateElement(selectedEl.id, { content: e.target.value })}
+                  className="w-full p-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 outline-none resize-none"
+                  rows={2}
+                />
+              )}
+
+              {/* Sticker search */}
+              {selectedEl.type === 'sticker' && (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input
+                      type="text"
+                      value={stickerQuery}
+                      onChange={(e) => setStickerQuery(e.target.value)}
+                      placeholder="Search stickers..."
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                    />
+                  </div>
+                  <div className="h-36 overflow-y-auto border border-slate-200 rounded-xl p-1.5 bg-slate-50/50">
+                    {isSearchingStickers ? (
+                      <div className="flex items-center justify-center h-full text-slate-400 text-xs">Searching...</div>
+                    ) : stickerResults.length > 0 ? (
+                      <>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {stickerResults.map(s => (
+                            <button
+                              key={s.id}
+                              onClick={() => updateElement(selectedEl.id, { content: s.url })}
+                              className={`border-2 rounded-lg overflow-hidden bg-white ${selectedEl.content === s.url ? 'border-amber-500 ring-1 ring-amber-200' : 'border-transparent'}`}
+                            >
+                              <img src={s.preview} alt="sticker" className="w-full h-auto object-contain" />
+                            </button>
+                          ))}
+                        </div>
+                        {stickerHasMore && (
+                          <button onClick={loadMoreStickers} disabled={isLoadingMoreStickers} className="w-full mt-1.5 py-1 text-xs text-violet-600 font-medium active:bg-violet-50 rounded-lg disabled:opacity-50">
+                            {isLoadingMoreStickers ? 'Loading...' : 'Load more'}
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-slate-400 text-xs">No stickers found</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Shape search & style */}
+              {selectedEl.type === 'shape' && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                    <input
+                      type="text"
+                      value={shapeQuery}
+                      onChange={(e) => setShapeQuery(e.target.value)}
+                      placeholder="Search shapes..."
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-violet-500 outline-none"
+                    />
+                  </div>
+                  <div className="h-28 overflow-y-auto border border-slate-200 rounded-xl p-1.5 bg-slate-50/50">
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {shapeResults.map(shape => {
+                        const Icon = (LucideIcons as any)[shape];
+                        if (!Icon) return null;
+                        return (
+                          <button
+                            key={shape}
+                            onClick={() => updateElement(selectedEl.id, { content: shape })}
+                            className={`p-2 rounded-lg border flex items-center justify-center ${selectedEl.content === shape ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-200 bg-white text-slate-600'}`}
+                          >
+                            <Icon size={18} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {shapeQuery && shapeResults.length >= shapeLimit && (
+                      <button onClick={loadMoreShapes} className="w-full mt-1.5 py-1 text-xs text-violet-600 font-medium active:bg-violet-50 rounded-lg">
+                        Load more
+                      </button>
+                    )}
+                    {shapeResults.length === 0 && (
+                      <div className="flex items-center justify-center h-full text-slate-400 text-xs">No shapes found</div>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => updateElement(selectedEl.id, { isFilled: true })}
+                      className={`flex-1 py-1.5 text-xs rounded-lg border ${selectedEl.isFilled ? 'border-violet-500 bg-violet-50 text-violet-700 font-medium' : 'border-slate-200 bg-white text-slate-600'}`}
+                    >Filled</button>
+                    <button
+                      onClick={() => updateElement(selectedEl.id, { isFilled: false })}
+                      className={`flex-1 py-1.5 text-xs rounded-lg border ${!selectedEl.isFilled ? 'border-violet-500 bg-violet-50 text-violet-700 font-medium' : 'border-slate-200 bg-white text-slate-600'}`}
+                    >Outline</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Size & Rotation */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-medium text-slate-400 mb-1">Size</label>
+                  <input type="range" min="0.05" max="5" step="0.05" value={selectedEl.scale} onChange={(e) => updateElement(selectedEl.id, { scale: parseFloat(e.target.value) })} className="w-full accent-violet-500" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-medium text-slate-400 mb-1">Rotation</label>
+                  <input type="range" min="-180" max="180" step="1" value={selectedEl.rotation} onChange={(e) => updateElement(selectedEl.id, { rotation: parseFloat(e.target.value) })} className="w-full accent-violet-500" />
+                </div>
+              </div>
+
+              {/* Colors */}
+              {(selectedEl.type === 'text' || selectedEl.type === 'shape') && (
+                <div className="flex flex-wrap gap-2">
+                  {COLORS.map(c => (
+                    <button key={c} onClick={() => updateElement(selectedEl.id, { color: c })} className={`w-7 h-7 rounded-full border-2 ${selectedEl.color === c ? 'border-violet-500 scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+              )}
+
+              {/* Fonts */}
+              {selectedEl.type === 'text' && (
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                  {FONTS.map(f => (
+                    <button key={f.id} onClick={() => updateElement(selectedEl.id, { font: f.class })} className={`px-3 py-1.5 text-sm rounded-lg border whitespace-nowrap ${selectedEl.font === f.class ? 'border-violet-500 bg-violet-50 text-violet-700' : 'border-slate-200 bg-white text-slate-600'} ${f.class}`}>
+                      Aa
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== MOBILE BOTTOM SHEET: Settings ===== */}
+      <AnimatePresence>
+        {mobilePanel === 'settings' && !mobileEditOpen && !shareUrl && (
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
+            className="md:hidden fixed bottom-[120px] left-0 right-0 z-30 bg-white/95 backdrop-blur-xl rounded-t-2xl border-t border-slate-200/50 max-h-[55vh] overflow-y-auto shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+          >
+            <div className="flex items-center justify-center pt-2 pb-1">
+              <div className="w-8 h-1 bg-slate-300 rounded-full" />
+            </div>
+            <div className="px-4 pb-4 space-y-5">
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Card Theme</h3>
+                <div className="flex flex-wrap gap-2">
+                  {THEMES.map(t => (
+                    <button key={t.id} onClick={() => setTheme(t)} className={`w-8 h-8 rounded-full border-2 ${theme.id === t.id ? 'border-slate-800 scale-110' : 'border-transparent'} ${t.bg}`} title={t.name} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Background</h3>
+                <div className="flex flex-wrap gap-2">
+                  {BACKGROUNDS.map(bg => (
+                    <button key={bg.id} onClick={() => setBgStyle(bg.id)} className={`w-8 h-8 rounded-full border-2 transition-all ${bgStyle === bg.id ? 'border-slate-800 scale-110' : 'border-white/50'}`} style={{ background: `linear-gradient(135deg, ${bg.colors[0]}, ${bg.colors[1]}, ${bg.colors[2]})` }} title={bg.name} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Decorations</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {BG_DECORATIONS.map(d => {
+                    const Icon = (LucideIcons as any)[d.icon];
+                    return (
+                      <button key={d.id} onClick={() => setBgDecoration(d.id)} className={`p-2 rounded-xl border ${bgDecoration === d.id ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-200 bg-white text-slate-500'}`} title={d.name}>
+                        {Icon && <Icon size={14} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Open Animation</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {OPEN_ANIMATIONS.map(a => {
+                    const Icon = (LucideIcons as any)[a.icon];
+                    return (
+                      <button key={a.id} onClick={() => setOpenAnimation(a.id)} className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-medium ${openAnimation === a.id ? 'border-violet-500 bg-violet-50 text-violet-600' : 'border-slate-200 bg-white text-slate-500'}`}>
+                        {Icon && <Icon size={12} />} {a.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Custom Link</h3>
+                <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-violet-500">
+                  <div className="pl-3 pr-2 py-2 bg-slate-50 border-r border-slate-100 text-slate-400">
+                    <LinkIcon size={12} />
+                  </div>
+                  <input type="text" value={customSlug} onChange={(e) => { setCustomSlug(e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase()); setSlugError(''); }} className="w-full px-2 py-2 text-sm outline-none text-slate-700 placeholder-slate-300" placeholder="my-custom-link" maxLength={30} />
+                </div>
+                {slugError && <p className="text-rose-500 text-xs mt-1.5 font-medium">{slugError}</p>}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Preview Overlay */}
       <AnimatePresence>
         {showPreview && (
@@ -1240,13 +1670,13 @@ export default function CreateGreeting() {
                   <motion.div
                     animate={{ rotateY: previewOpen ? -180 : 0 }}
                     transition={{ duration: 1, type: 'spring', bounce: 0.3 }}
-                    style={{ transformOrigin: 'left', transformStyle: 'preserve-3d' }}
+                    style={{ transformOrigin: 'left', transformStyle: 'preserve-3d', WebkitTransformStyle: 'preserve-3d' }}
                     className="absolute inset-0 z-10"
                   >
                     {/* Front */}
                     <div
                       className={`absolute inset-0 ${theme.bg} rounded-r-3xl rounded-l-none shadow-2xl border ${theme.border} cursor-pointer hover:brightness-95 transition-all overflow-hidden`}
-                      style={{ backfaceVisibility: 'hidden' }}
+                      style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
                       onClick={handlePreviewOpen}
                     >
                       {renderPreviewElements('cover')}
@@ -1254,7 +1684,7 @@ export default function CreateGreeting() {
                     {/* Back (Inside Left) */}
                     <div
                       className={`absolute inset-0 ${theme.bg} rounded-l-3xl rounded-r-none border border-r-0 ${theme.border} overflow-hidden shadow-inner`}
-                      style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                      style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                     >
                       <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px', color: 'black' }} />
                       <div className="w-full h-full relative">
