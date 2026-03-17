@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: cards
+    // Document ID: {cardId}
+    // Fields:
+    //   - id: string (required) - Unique identifier
+    //   - theme: string (required) - Theme of the card
+    //   - createdAt: string (required) - ISO 8601 date string
+    //   - expiresAt: number (required) - Timestamp in milliseconds
+    //   - elements: string (required) - JSON stringified array of elements
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+    
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function isValidCard(data) {
+      return hasOnlyAllowedFields(['id', 'theme', 'createdAt', 'expiresAt', 'elements']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.theme is string && data.theme.size() > 0 && data.theme.size() < 50 &&
+             isValidDateString(data.createdAt) &&
+             data.expiresAt is number && data.expiresAt > 0 &&
+             data.elements is string && data.elements.size() < 200000; // Max 200KB for elements JSON
+    }
+
+    match /cards/{cardId} {
+      // Anyone can read a card (since they are shared via link)
+      allow read: if true;
+      
+      // Anyone can create a card, but it must be valid and have an expiration date
+      allow create: if isValidCard(request.resource.data);
+                    
+      // Updates and deletes are not allowed from the client
+      allow update, delete: if false;
+    }
+
+    match /stats/cards {
+      // Anyone can read the global card count
+      allow read: if true;
+      
+      // Allow creating or updating the count field only
+      allow create: if request.resource.data.keys().hasOnly(['count']) &&
+                       request.resource.data.count is int;
+      allow update: if request.resource.data.keys().hasOnly(['count']) &&
+                       request.resource.data.count is int;
+      
+      allow delete: if false;
+    }
+  }
+}

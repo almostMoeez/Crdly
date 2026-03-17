@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "Card": {
+      "title": "Card",
+      "description": "A customizable greeting card",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the card"
+        },
+        "theme": {
+          "type": "string",
+          "description": "Theme of the card (e.g., emerald, rose)"
+        },
+        "authorUid": {
+          "type": "string",
+          "description": "User ID of the creator"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "elements": {
+          "type": "string",
+          "description": "JSON stringified array of card elements (text, stickers, images)"
+        }
+      },
+      "required": ["id", "theme", "authorUid", "createdAt", "elements"]
+    }
+  },
+  "firestore": {
+    "/cards/{cardId}": {
+      "schema": {
+        "$ref": "#/entities/Card"
+      },
+      "description": "Stores custom greeting cards"
+    }
+  }
+}

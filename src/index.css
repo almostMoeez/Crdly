@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400;1,600&family=Caveat:wght@400;700&family=Pacifico&family=Fredoka:wght@400;600&family=Righteous&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-caveat: "Caveat", cursive;
+  --font-pacifico: "Pacifico", cursive;
+  --font-fredoka: "Fredoka", sans-serif;
+  --font-righteous: "Righteous", cursive;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #fdfbf7;
+  color: #1a1a1a;
+}
