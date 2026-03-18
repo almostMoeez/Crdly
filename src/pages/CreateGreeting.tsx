@@ -759,7 +759,7 @@ export default function CreateGreeting() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col md:flex-row font-sans overflow-hidden" style={{ touchAction: 'pan-x pan-y', WebkitUserSelect: 'none' }} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
+    <div className="min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex flex-col md:flex-row font-sans overflow-hidden" style={{ touchAction: 'pan-x pan-y', WebkitUserSelect: 'none' }} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp}>
       {/* ===== DESKTOP SIDEBAR (hidden on mobile) ===== */}
       <div className="hidden md:flex w-80 bg-white/80 backdrop-blur-xl border-r border-white/50 flex-col h-screen overflow-y-auto z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
         <div className="p-6 border-b border-slate-100/50">
@@ -1307,7 +1307,7 @@ export default function CreateGreeting() {
       </div>
 
       {/* ===== MOBILE BOTTOM TOOLBAR (visible on mobile only) ===== */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/50 safe-area-inset-bottom">
+      <div className="md:hidden fixed left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/50 safe-area-inset-bottom" style={{ bottom: 'var(--browser-chrome-bottom, 0px)' }}>
         {shareUrl ? (
           <div className="p-3 space-y-2">
             <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-medium flex items-center gap-2">
@@ -1373,7 +1373,8 @@ export default function CreateGreeting() {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
-            className="md:hidden fixed bottom-[120px] left-0 right-0 z-30 bg-white/95 backdrop-blur-xl rounded-t-2xl border-t border-slate-200/50 max-h-[50vh] overflow-y-auto shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+            className="md:hidden fixed left-0 right-0 z-30 bg-white/95 backdrop-blur-xl rounded-t-2xl border-t border-slate-200/50 max-h-[50vh] overflow-y-auto shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+            style={{ bottom: 'calc(120px + var(--browser-chrome-bottom, 0px))' }}
             onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-center pt-2 pb-1">
@@ -1539,7 +1540,8 @@ export default function CreateGreeting() {
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', bounce: 0.15, duration: 0.4 }}
-            className="md:hidden fixed bottom-[120px] left-0 right-0 z-30 bg-white/95 backdrop-blur-xl rounded-t-2xl border-t border-slate-200/50 max-h-[55vh] overflow-y-auto shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+            className="md:hidden fixed left-0 right-0 z-30 bg-white/95 backdrop-blur-xl rounded-t-2xl border-t border-slate-200/50 max-h-[55vh] overflow-y-auto shadow-[0_-4px_24px_rgba(0,0,0,0.08)]"
+            style={{ bottom: 'calc(120px + var(--browser-chrome-bottom, 0px))' }}
           >
             <div className="flex items-center justify-center pt-2 pb-1">
               <div className="w-8 h-1 bg-slate-300 rounded-full" />

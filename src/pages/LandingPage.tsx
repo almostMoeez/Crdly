@@ -28,7 +28,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#fdfbf7] font-sans overflow-x-hidden">
+    <div className="min-h-full bg-[#fdfbf7] font-sans overflow-x-hidden">
       {/* Nav */}
       <nav aria-label="Main navigation" className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 max-w-6xl mx-auto">
         <span className="text-2xl font-bold text-slate-900 font-fredoka tracking-tight">

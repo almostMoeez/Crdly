@@ -259,7 +259,7 @@ export default function ViewGreeting() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <div className="fixed inset-0 flex items-center justify-center pb-14 sm:pb-0 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -267,7 +267,7 @@ export default function ViewGreeting() {
 
   if (isExpired) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-4 pb-14 sm:p-8 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-white/50">
           <Clock className="mx-auto text-slate-300 mb-4" size={48} />
           <h2 className="text-2xl font-fredoka text-slate-800 mb-2">Link Expired</h2>
@@ -282,7 +282,7 @@ export default function ViewGreeting() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-4 pb-14 sm:p-8 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="bg-white/80 backdrop-blur-xl p-8 rounded-3xl shadow-xl max-w-md w-full text-center border border-white/50">
           <Moon className="mx-auto text-slate-300 mb-4" size={48} />
           <h2 className="text-2xl font-fredoka text-slate-800 mb-2">Oops!</h2>
@@ -340,7 +340,7 @@ export default function ViewGreeting() {
   };
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 relative overflow-hidden bg-gradient-to-br ${bgConfig.gradient} transition-colors duration-1000`}>
+    <div className={`fixed inset-0 flex flex-col items-center justify-center px-4 pt-4 sm:p-8 overflow-hidden bg-gradient-to-br ${bgConfig.gradient} transition-colors duration-1000`} style={{ paddingBottom: 'calc(16px + var(--browser-chrome-bottom, 0px))' }}>
       {/* Decorative Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         {data.bgDecoration !== 'none' && (() => {
@@ -436,7 +436,7 @@ export default function ViewGreeting() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ delay: 0.3, duration: 0.6 }}
-            className="relative z-10 pb-4 sm:pb-8"
+            className="relative z-10"
           >
             <p className={`text-xs sm:text-sm font-medium animate-pulse ${data.bgStyle === 'midnight' ? 'text-slate-300' : 'text-slate-500'}`}>
               Tap the card to open it
@@ -451,7 +451,7 @@ export default function ViewGreeting() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 1.5, duration: 0.8 }}
-            className="relative z-10 pb-4 sm:pb-8"
+            className="relative z-10"
           >
             <Link 
               to="/" 
